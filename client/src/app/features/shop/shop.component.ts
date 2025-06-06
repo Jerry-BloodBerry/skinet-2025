@@ -1,25 +1,82 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { ShopService } from '../../core/services/shop.service';
 import { Product } from '../../shared/models/product';
-import { MatCard } from '@angular/material/card';
 import { ProductItemComponent } from "./product-item/product-item.component";
-
+import { MatDialog } from '@angular/material/dialog';
+import { FiltersDialogComponent } from './filters-dialog/filters-dialog.component';
+import { MatButton } from '@angular/material/button';
+import { MatIcon } from '@angular/material/icon';
+import { MatMenu, MatMenuTrigger } from '@angular/material/menu';
+import { MatListOption, MatSelectionList, MatSelectionListChange } from '@angular/material/list';
 @Component({
   selector: 'app-shop',
-  imports: [MatCard, ProductItemComponent],
+  imports: [
+    ProductItemComponent,
+    MatButton,
+    MatIcon,
+    MatMenu,
+    MatMenuTrigger,
+    MatSelectionList,
+    MatListOption],
   templateUrl: './shop.component.html',
   styleUrl: './shop.component.scss'
 })
 export class ShopComponent implements OnInit {
   private shopService = inject(ShopService);
+  private dialogService = inject(MatDialog);
   products: Product[] = [];
+  selectedBrands: string[] = [];
+  selectedTypes: string[] = [];
+  selectedSort: string = 'name';
+  sortOptions = [
+      { name: 'Alphabetical', value: 'name' },
+      { name: 'Price: Low-High', value: 'priceAsc' },
+      { name: 'Price: High-Low', value: 'priceDesc' }
+  ]
 
   ngOnInit(): void {
-    this.shopService.getProducts().subscribe({
+    this.initializeShop();
+  }
+
+  initializeShop() {
+    this.shopService.getBrands();
+    this.shopService.getTypes();
+
+    this.getProducts();
+  }
+
+  onSortChange(event: MatSelectionListChange) {
+    const selectedOption = event.options.find(option => option.selected);
+    if (selectedOption) {
+      this.selectedSort = selectedOption.value;
+      this.getProducts();
+    }
+  }
+
+  getProducts() {
+    this.shopService.getProducts(this.selectedBrands, this.selectedTypes, this.selectedSort).subscribe({
       next: response => this.products = response.data,
       error: error => console.log(error)
     })
   }
 
+  openFiltersDialog() {
+    const dialogRef = this.dialogService.open(FiltersDialogComponent, {
+      minWidth: '500px',
+      data: {
+        selectedBrands: this.selectedBrands,
+        selectedTypes: this.selectedTypes
+      }
+    });
 
+    dialogRef.afterClosed().subscribe({
+      next: result => {
+        if (result) {
+          this.selectedBrands = result.selectedBrands;
+          this.selectedTypes = result.selectedTypes;
+          this.getProducts();
+        }
+      }
+    })
+  }
 }
